@@ -1,0 +1,110 @@
+[
+  {
+    "id": "table_customers",
+    "type": "table_description",
+    "table": "customers",
+    "content": "TABLE: customers\n\nDESCRIPTION:\nStores information about all customers who have placed orders. Each customer has a unique 5-character ID. Use this table to answer questions about who our customers are, where they are located, and how to contact them.\n\nBUSINESS MEANING:\nA 'customer' is any company or individual that has purchased from us. CustomerID is used as a foreign key in the Orders table.\n\nCOLUMNS:\n  - customer_id (VARCHAR(5), NOT NULL): Unique 5-character identifier for the customer (e.g. 'ALFKI')\n  - company_name (VARCHAR(40), NOT NULL): Name of the customer's company\n  - contact_name (VARCHAR(30), nullable): Full name of the primary contact person at the company\n  - contact_title (VARCHAR(30), nullable): Job title of the contact person (e.g. 'Sales Representative')\n  - address (VARCHAR(60), nullable): Street address of the customer\n  - city (VARCHAR(15), nullable): City where the customer is located\n  - region (VARCHAR(15), nullable): State, province, or region (may be NULL for non-US/Canada)\n  - postal_code (VARCHAR(10), nullable): ZIP or postal code\n  - country (VARCHAR(15), nullable): Country of the customer\n  - phone (VARCHAR(24), nullable): Customer phone number\n  - fax (VARCHAR(24), nullable): Customer fax number (often NULL)\n\nCOMMON USE CASES:\n  \u2022 Count total number of customers\n  \u2022 Find customers in a specific country or city\n  \u2022 Look up contact details for a customer\n  \u2022 Identify customers who have never ordered (LEFT JOIN with orders)"
+  },
+  {
+    "id": "table_orders",
+    "type": "table_description",
+    "table": "orders",
+    "content": "TABLE: orders\n\nDESCRIPTION:\nRecords every order placed by customers. This is the central fact table for sales analysis. Each row is one order. To get order line items, join with order_details. To get revenue, join order_details and multiply unit_price by quantity with freight.\n\nBUSINESS MEANING:\nAn 'order' is a single transaction from a customer. Orders have a status implied by their dates: if shipped_date is NULL, the order has not shipped yet.\n\nCOLUMNS:\n  - order_id (SMALLINT, NOT NULL): Unique integer identifier for the order\n  - customer_id (VARCHAR(5), nullable): Foreign key to customers.customer_id\n  - employee_id (SMALLINT, nullable): Foreign key to employees.employee_id \u2014 who took the order\n  - order_date (DATE, nullable): Date the order was placed by the customer\n  - required_date (DATE, nullable): Date the customer requested delivery by\n  - shipped_date (DATE, nullable): Date the order actually shipped. NULL if not yet shipped.\n  - ship_via (SMALLINT, nullable): Foreign key to shippers.shipper_id \u2014 which shipping company was used\n  - freight (REAL, nullable): Shipping cost for this order in USD\n  - ship_name (VARCHAR(40), nullable): Name of the shipping recipient (may differ from customer name)\n  - ship_address (VARCHAR(60), nullable): Delivery street address\n  - ship_city (VARCHAR(15), nullable): Delivery city\n  - ship_region (VARCHAR(15), nullable): Delivery region or state\n  - ship_postal_code (VARCHAR(10), nullable): Delivery postal code\n  - ship_country (VARCHAR(15), nullable): Delivery country\n\nCOMMON USE CASES:\n  \u2022 Total orders per month or year\n  \u2022 Orders that have not yet shipped\n  \u2022 Average days between order_date and shipped_date (fulfillment time)\n  \u2022 Orders by employee (sales attribution)\n  \u2022 Orders shipped to a specific country or region"
+  },
+  {
+    "id": "table_order_details",
+    "type": "table_description",
+    "table": "order_details",
+    "content": "TABLE: order_details\n\nDESCRIPTION:\nLine items for each order \u2014 one row per product per order. To calculate revenue for an order: SUM(unit_price * quantity * (1 - discount)). Always join with orders to filter by date range.\n\nBUSINESS MEANING:\nThis is the bridge table between orders and products. Revenue analysis almost always requires this table.\n\nCOLUMNS:\n  - order_id (SMALLINT, NOT NULL): Foreign key to orders.order_id\n  - product_id (SMALLINT, NOT NULL): Foreign key to products.product_id\n  - unit_price (REAL, NOT NULL): Price per unit at time of order (may differ from current products.unit_price)\n  - quantity (SMALLINT, NOT NULL): Number of units ordered\n  - discount (REAL, NOT NULL): Fractional discount applied (0.0 = no discount, 0.1 = 10% off). Subtract from 1 to get the multiplier.\n\nCOMMON USE CASES:\n  \u2022 Total revenue for a date range: JOIN orders ON order_id, SUM(unit_price * quantity * (1-discount))\n  \u2022 Best-selling products by quantity or revenue\n  \u2022 Average order value\n  \u2022 Products frequently bought together"
+  },
+  {
+    "id": "table_products",
+    "type": "table_description",
+    "table": "products",
+    "content": "TABLE: products\n\nDESCRIPTION:\nThe product catalog \u2014 one row per product. Contains current pricing and inventory levels. For historical prices, use order_details.unit_price. Products belong to a category and are supplied by a single supplier.\n\nBUSINESS MEANING:\nA 'product' is a SKU we sell. discontinued=1 means we no longer sell it.\n\nCOLUMNS:\n  - product_id (SMALLINT, NOT NULL): Unique integer identifier for the product\n  - product_name (VARCHAR(40), NOT NULL): Name of the product\n  - supplier_id (SMALLINT, nullable): Foreign key to suppliers.supplier_id\n  - category_id (SMALLINT, nullable): Foreign key to categories.category_id\n  - quantity_per_unit (VARCHAR(20), nullable): Description of packaging (e.g. '12 - 550 ml bottles')\n  - unit_price (REAL, nullable): Current list price in USD\n  - units_in_stock (SMALLINT, nullable): Current inventory on hand\n  - units_on_order (SMALLINT, nullable): Units ordered from supplier but not yet received\n  - reorder_level (SMALLINT, nullable): Inventory threshold that triggers a reorder\n  - discontinued (INTEGER, NOT NULL): 1 if product is no longer sold, 0 if active\n\nCOMMON USE CASES:\n  \u2022 List all products in a category\n  \u2022 Find products with low stock (units_in_stock < reorder_level)\n  \u2022 Products that are discontinued\n  \u2022 Most expensive products"
+  },
+  {
+    "id": "table_categories",
+    "type": "table_description",
+    "table": "categories",
+    "content": "TABLE: categories\n\nDESCRIPTION:\nProduct categories (e.g. Beverages, Condiments, Seafood). Each product belongs to exactly one category.\n\nBUSINESS MEANING:\nTop-level grouping for products. Useful for category-level sales rollups.\n\nCOLUMNS:\n  - category_id (SMALLINT, NOT NULL): Unique integer identifier\n  - category_name (VARCHAR(15), NOT NULL): Name of the category (e.g. 'Beverages', 'Dairy Products')\n  - description (TEXT, nullable): Short description of what kinds of products belong here\n\nCOMMON USE CASES:\n  \u2022 Revenue by category\n  \u2022 Number of products per category\n  \u2022 Best-selling category"
+  },
+  {
+    "id": "table_employees",
+    "type": "table_description",
+    "table": "employees",
+    "content": "TABLE: employees\n\nDESCRIPTION:\nCompany employees, particularly the sales reps who take orders. Each order is attributed to one employee. Employees can have a manager (reports_to references another employee_id).\n\nBUSINESS MEANING:\nUsed for sales attribution and performance analysis.\n\nCOLUMNS:\n  - employee_id (SMALLINT, NOT NULL): Unique integer identifier\n  - last_name (VARCHAR(20), NOT NULL): Employee's last name\n  - first_name (VARCHAR(10), NOT NULL): Employee's first name\n  - title (VARCHAR(30), nullable): Job title (e.g. 'Sales Representative', 'Vice President, Sales')\n  - birth_date (DATE, nullable): Date of birth\n  - hire_date (DATE, nullable): Date the employee was hired\n  - city (VARCHAR(15), nullable): City where the employee is based\n  - country (VARCHAR(15), nullable): Country where the employee is based\n  - reports_to (SMALLINT, nullable): employee_id of this employee's manager (NULL for top-level)\n\nCOMMON USE CASES:\n  \u2022 Sales (revenue) by employee\n  \u2022 Number of orders per employee\n  \u2022 Employee hierarchy (who reports to whom)\n  \u2022 Top performing sales reps"
+  },
+  {
+    "id": "table_suppliers",
+    "type": "table_description",
+    "table": "suppliers",
+    "content": "TABLE: suppliers\n\nDESCRIPTION:\nCompanies that supply products to us. Each product has one supplier. Suppliers are external vendors, not customers.\n\nBUSINESS MEANING:\nUsed for procurement and vendor analysis.\n\nCOLUMNS:\n  - supplier_id (SMALLINT, NOT NULL): Unique integer identifier\n  - company_name (VARCHAR(40), NOT NULL): Name of the supplier company\n  - contact_name (VARCHAR(30), nullable): Primary contact at the supplier\n  - country (VARCHAR(15), nullable): Country where the supplier is based\n  - phone (VARCHAR(24), nullable): Supplier phone number\n\nCOMMON USE CASES:\n  \u2022 Products supplied by a given vendor\n  \u2022 Number of products per supplier\n  \u2022 Suppliers by country"
+  },
+  {
+    "id": "table_shippers",
+    "type": "table_description",
+    "table": "shippers",
+    "content": "TABLE: shippers\n\nDESCRIPTION:\nShipping companies used to deliver orders (e.g. FedEx, UPS equivalents).\n\nBUSINESS MEANING:\nUsed to analyse which carrier is used most and freight cost by carrier.\n\nCOLUMNS:\n  - shipper_id (SMALLINT, NOT NULL): Unique integer identifier\n  - company_name (VARCHAR(40), NOT NULL): Name of the shipping company\n  - phone (VARCHAR(24), nullable): Shipper contact phone\n\nCOMMON USE CASES:\n  \u2022 Orders per shipper\n  \u2022 Average freight cost per shipper"
+  },
+  {
+    "id": "glossary_revenue",
+    "type": "glossary",
+    "content": "TERM: Revenue\n\nDEFINITION: Total sales value. Calculate as: SUM(order_details.unit_price * order_details.quantity * (1 - order_details.discount)). Always join order_details with orders to apply date filters."
+  },
+  {
+    "id": "glossary_gross_revenue_vs_net_revenue",
+    "type": "glossary",
+    "content": "TERM: Gross revenue vs net revenue\n\nDEFINITION: Gross revenue ignores discounts: SUM(unit_price * quantity). Net revenue applies discounts: SUM(unit_price * quantity * (1 - discount))."
+  },
+  {
+    "id": "glossary_average_order_value_(aov)",
+    "type": "glossary",
+    "content": "TERM: Average order value (AOV)\n\nDEFINITION: Total revenue divided by number of orders. Requires joining orders, order_details. Group by order_id first, then average."
+  },
+  {
+    "id": "glossary_fulfillment_time",
+    "type": "glossary",
+    "content": "TERM: Fulfillment time\n\nDEFINITION: Number of days between order_date and shipped_date in the orders table. Calculate with: shipped_date - order_date."
+  },
+  {
+    "id": "glossary_active_product",
+    "type": "glossary",
+    "content": "TERM: Active product\n\nDEFINITION: A product where products.discontinued = 0."
+  },
+  {
+    "id": "glossary_unshipped_orders",
+    "type": "glossary",
+    "content": "TERM: Unshipped orders\n\nDEFINITION: Orders where orders.shipped_date IS NULL."
+  },
+  {
+    "id": "glossary_ytd_(year_to_date)",
+    "type": "glossary",
+    "content": "TERM: YTD (year to date)\n\nDEFINITION: Filter orders.order_date where EXTRACT(year FROM order_date) = <year>. The data in Northwind runs from 1996 to 1998."
+  },
+  {
+    "id": "example_query_1",
+    "type": "example_query",
+    "content": "EXAMPLE QUERY 1\n\nQUESTION: What is total revenue for 1997?\n\nSQL:\nSELECT ROUND(SUM(od.unit_price * od.quantity * (1 - od.discount))::numeric, 2) AS revenue_1997\n            FROM order_details od\n            JOIN orders o ON od.order_id = o.order_id\n            WHERE EXTRACT(year FROM o.order_date) = 1997;\n\nNOTE: Use net revenue (discount applied). Filter on order_date year."
+  },
+  {
+    "id": "example_query_2",
+    "type": "example_query",
+    "content": "EXAMPLE QUERY 2\n\nQUESTION: Who are the top 5 customers by revenue?\n\nSQL:\nSELECT c.company_name,\n                   ROUND(SUM(od.unit_price * od.quantity * (1 - od.discount))::numeric, 2) AS revenue\n            FROM order_details od\n            JOIN orders o ON od.order_id = o.order_id\n            JOIN customers c ON o.customer_id = c.customer_id\n            GROUP BY c.company_name\n            ORDER BY revenue DESC\n            LIMIT 5;\n\nNOTE: Always use net revenue. Group by company."
+  },
+  {
+    "id": "example_query_3",
+    "type": "example_query",
+    "content": "EXAMPLE QUERY 3\n\nQUESTION: What are the best-selling product categories by quantity?\n\nSQL:\nSELECT cat.category_name, SUM(od.quantity) AS total_qty\n            FROM order_details od\n            JOIN products p ON od.product_id = p.product_id\n            JOIN categories cat ON p.category_id = cat.category_id\n            GROUP BY cat.category_name\n            ORDER BY total_qty DESC;\n\nNOTE: Join order_details \u2192 products \u2192 categories."
+  },
+  {
+    "id": "example_query_4",
+    "type": "example_query",
+    "content": "EXAMPLE QUERY 4\n\nQUESTION: Which employee has generated the most revenue?\n\nSQL:\nSELECT e.first_name || ' ' || e.last_name AS employee,\n                   ROUND(SUM(od.unit_price * od.quantity * (1 - od.discount))::numeric, 2) AS revenue\n            FROM order_details od\n            JOIN orders o ON od.order_id = o.order_id\n            JOIN employees e ON o.employee_id = e.employee_id\n            GROUP BY employee\n            ORDER BY revenue DESC\n            LIMIT 1;\n\nNOTE: Attribution via orders.employee_id."
+  },
+  {
+    "id": "example_query_5",
+    "type": "example_query",
+    "content": "EXAMPLE QUERY 5\n\nQUESTION: How many orders are still unshipped?\n\nSQL:\nSELECT COUNT(*) AS unshipped_orders\n            FROM orders\n            WHERE shipped_date IS NULL;\n\nNOTE: Unshipped = shipped_date IS NULL."
+  }
+]
