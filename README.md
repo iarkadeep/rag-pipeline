@@ -2,6 +2,8 @@
 
 A production-style chatbot that answers plain-English questions about a sales database using a Retrieval-Augmented Generation (RAG) pipeline. Combines semantic vector search with SQL generation to deliver accurate, explainable answers over structured business data.
 
+**Live demo:** [northwind.streamlit.app](https://northwind.streamlit.app)
+
 ---
 
 ## Demo
@@ -22,25 +24,25 @@ The app classifies each question, retrieves relevant schema context, generates S
 User question
       │
       ▼
-Query Router          ← Gemini 1.5 Flash classifies: sql / vector / both
+Query Router          ← Groq (Llama 3.1 70B) classifies: sql / vector / both
       │
       ▼
 Vector Retrieval      ← Gemini Embedding embeds query → ChromaDB similarity search
       │                  returns relevant schema docs as context
       ▼
-SQL Generation        ← Gemini 1.5 Flash writes SQL using schema context
+SQL Generation        ← Groq (Llama 3.1 70B) writes SQL using schema context
       │
       ▼
-SQL Execution         ← SQLAlchemy runs query against PostgreSQL (Northwind)
+SQL Execution         ← SQLAlchemy runs query against Neon PostgreSQL
       │
       ▼
-Answer Generation     ← Gemini 1.5 Flash formats results into plain English
+Answer Generation     ← Groq (Llama 3.1 70B) formats results into plain English
       │
       ▼
 Streamlit UI          ← displays answer, route badge, SQL expander, raw results
 ```
 
-Every query makes 3 Gemini API calls (router + SQL gen + answer gen) plus 1 embedding call — all on the free tier.
+Every query makes 3 Groq API calls (router + SQL gen + answer gen) plus 1 Gemini embedding call — all on free tiers.
 
 ---
 
@@ -48,11 +50,11 @@ Every query makes 3 Gemini API calls (router + SQL gen + answer gen) plus 1 embe
 
 | Layer | Tool |
 |---|---|
-| UI | Streamlit |
-| LLM (routing, SQL gen, answer gen) | Gemini 1.5 Flash |
+| UI | Streamlit Community Cloud |
+| LLM (routing, SQL gen, answer gen) | Groq (Llama 3.1 70B) |
 | Embeddings | Gemini Embedding 001 |
-| Vector store | ChromaDB (local persistent) |
-| SQL database | PostgreSQL 15 (Docker) |
+| Vector store | ChromaDB (committed to repo) |
+| SQL database | Neon (free managed PostgreSQL) |
 | ORM | SQLAlchemy |
 | Dataset | Northwind (10 tables, ~2,000 rows) |
 
@@ -91,13 +93,14 @@ rag-analytics-chatbot/
 ### Prerequisites
 
 - Python 3.10+
-- Docker (for PostgreSQL)
 - A [Google AI Studio](https://aistudio.google.com/app/apikey) account (free Gemini API key)
+- A [Groq](https://console.groq.com) account (free API key)
+- A [Neon](https://neon.tech) account (free managed PostgreSQL)
 
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/yourusername/rag-analytics-chatbot.git
+git clone https://github.com/iarkadeep/rag-analytics-chatbot.git
 cd rag-analytics-chatbot
 ```
 
@@ -125,29 +128,27 @@ Create a `.env` file in the project root:
 
 ```
 GEMINI_API_KEY=your-gemini-api-key-here
-DB_URL=postgresql://your_user:your_password@localhost:5432/northwind
+GROQ_API_KEY=your-groq-api-key-here
+DB_URL=your-neon-connection-string-here
 ```
 
-### 5. Start PostgreSQL and load the database
+### 5. Set up Neon and load the database
+
+1. Go to [neon.tech](https://neon.tech) and create a free project
+2. Copy your connection string from the Neon dashboard
+3. Download and load the Northwind dataset:
 
 ```bash
-# Pull and run PostgreSQL in Docker
-docker run --name northwind-pg \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=northwind \
-  -p 5432:5432 \
-  -d postgres:15
-
-# Download the Northwind SQL file
+# Download Northwind SQL file
 curl -o data/northwind.sql https://raw.githubusercontent.com/pthom/northwind_psql/master/northwind.sql
 
-# Load data into PostgreSQL
-docker exec -i northwind-pg psql -U postgres -d northwind < data/northwind.sql
+# Load into Neon (via Docker if psql not installed locally)
+docker run --rm -i postgres:15 psql your-neon-connection-string < data/northwind.sql
 ```
 
 ### 6. Run the Phase 1 setup scripts
 
-These only need to be run once to set up the vector store.
+These only need to be run once to build the vector store.
 
 ```bash
 python phase1/2_document_schema.py
@@ -161,6 +162,27 @@ streamlit run app.py
 ```
 
 Open [http://localhost:8501](http://localhost:8501) in your browser.
+
+---
+
+## Deployment
+
+This app is deployed on **Streamlit Community Cloud** with **Neon** as the managed PostgreSQL backend — both free forever.
+
+### Deploy your own instance
+
+1. Push this repo to GitHub (make sure `data/chroma_db/` is committed and `.env` is in `.gitignore`)
+2. Go to [share.streamlit.io](https://share.streamlit.io) and sign in with GitHub
+3. Click **New app** → select your repo → set main file to `app.py`
+4. Click **Advanced settings** → **Secrets** and add:
+
+```toml
+GEMINI_API_KEY = "your-gemini-api-key"
+GROQ_API_KEY = "your-groq-api-key"
+DB_URL = "your-neon-connection-string"
+```
+
+5. Click **Deploy**
 
 ---
 
@@ -189,7 +211,7 @@ Most text-to-SQL systems fail on domain-specific schemas because the LLM doesn't
 
 **SQL validation layer** — The LLM generates SQL but never executes it directly. All queries pass through SQLAlchemy, which handles connection pooling, parameterisation, and error catching before results reach the user.
 
-**Separation of retrieval and generation** — The pipeline separates schema retrieval (ChromaDB) from answer generation (Gemini). This makes each component independently testable and swappable.
+**Separation of retrieval and generation** — The pipeline separates schema retrieval (ChromaDB) from answer generation (Groq). This makes each component independently testable and swappable.
 
 ---
 
@@ -199,10 +221,10 @@ This project is built as a working prototype. For production scale:
 
 | Component | Current | Production upgrade |
 |---|---|---|
-| Vector store | ChromaDB (local files) | Pinecone, Weaviate, or pgvector on RDS |
-| SQL database | PostgreSQL in Docker | AWS RDS or Google Cloud SQL |
+| Vector store | ChromaDB (in repo) | Pinecone, Weaviate, or pgvector on RDS |
+| SQL database | Neon free tier | AWS RDS or Google Cloud SQL |
 | API | Streamlit | FastAPI + Docker + Kubernetes |
-| Secrets | `.env` file | AWS Secrets Manager or HashiCorp Vault |
+| Secrets | Streamlit secrets | AWS Secrets Manager or HashiCorp Vault |
 | Observability | None | LangSmith for query tracing |
 | Embeddings pipeline | Run once manually | Nightly scheduled job for data freshness |
 
