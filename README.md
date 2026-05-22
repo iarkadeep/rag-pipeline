@@ -1,7 +1,7 @@
 # Northwind Analytics — RAG-Powered Analytics Chatbot
 
 A production-style chatbot that answers plain-English questions about a sales database using a Retrieval-Augmented Generation (RAG) pipeline. Combines semantic vector search with SQL generation to deliver accurate, explainable answers over structured business data.
-
+(NOTE: - Use Python 3.10 specifically (3.11+ may cause dependency issues))
 **Live demo:** [northwind.streamlit.app](https://northwind.streamlit.app)
 
 ---
@@ -30,13 +30,13 @@ Query Router          ← Groq (Llama 3.1 70B) classifies: sql / vector / both
 Vector Retrieval      ← Gemini Embedding embeds query → ChromaDB similarity search
       │                  returns relevant schema docs as context
       ▼
-SQL Generation        ← Groq (Llama 3.1 70B) writes SQL using schema context
+SQL Generation        ← Groq (Llama 3.3 70B) writes SQL using schema context
       │
       ▼
 SQL Execution         ← SQLAlchemy runs query against Neon PostgreSQL
       │
       ▼
-Answer Generation     ← Groq (Llama 3.1 70B) formats results into plain English
+Answer Generation     ← Groq (Llama 3.3 70B) formats results into plain English
       │
       ▼
 Streamlit UI          ← displays answer, route badge, SQL expander, raw results
